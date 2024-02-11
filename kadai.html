@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>課題</title>
+<script src="js/three.js"></script>
+<script src="js/OrbitControls.js"></script>
+<!--<script src="js/ConvexGeometry.js"></script>-->
+<style type="text/css">
+div#canvas-frame{
+  border: none;
+  cursor: pointer;
+  width: 900px;
+  height: 900px;
+  background-color: #EEEEEE;
+}
+#time{
+    font-size: 30px;
+    font-family:'ヒラギノ丸ゴ Pro W4','メイリオ', '游ゴシック体';
+    position: absolute;
+    left: 40px;
+    top: 30px;
+}
+#setsumei {
+    position: absolute;
+    top: 150px;
+    left: 150px;
+    background-color: Pink;
+    padding: 10px 100px 20px 100px;
+    opacity:0.8;
+}
+#setsumei p {
+    font-family:'ヒラギノ丸ゴ Pro W4','メイリオ', '游ゴシック体';
+    font-size: large;
+}
+.button{
+    position: relative;
+    left: 150px;
+    width: 80px;
+    height: 30px;
+    text-decoration: none;
+    /*border-radius: 20%;*/
+    pointer-events:auto;
+    -webkit-appearance: none;
+}
+.button:hover{
+    background-color: LemonChiffon;
+}
+#start_position {
+    font-family:'ヒラギノ丸ゴ Pro W4','メイリオ', '游ゴシック体';
+    position: absolute;
+    top: 330px;
+    left: 130px;
+}
+#hole_position {
+    font-family:'ヒラギノ丸ゴ Pro W4','メイリオ', '游ゴシック体';
+    position: absolute;
+    top: 300px;
+    left: 318px;
+    text-align: center;
+}
+#goal_position {
+    font-family:'ヒラギノ丸ゴ Pro W4','メイリオ', '游ゴシック体';
+    position: absolute;
+    top: 520px;
+    left: 750px;
+}
+</style>
+<div id="time" style="float:left">
+    制限時間：20秒
+  </div>
+<div id="setsumei">
+<p>
+制限時間以内に右下のゴールを目指しましょう！<br>
+下のボタンを押すと始められます。</p>
+<form>
+    <input type="button" class="button" value="Start" id="button">
+</form>
+</div>
+<p id="start_position">スタート位置→</p>
+<p id="hole_position">落とし穴<br>↓</p>
+<p id="goal_position">←ゴール</p>
+
+<script>
+  //ボタンが押された時
+  const button = document.getElementById('button');
+  button.addEventListener('click', start);
+  
+  var t = 0;
+  var t_max = 0;
+  var deadline = 19;
+  //説明文とボタンを消す
+  function start() {
+    document.getElementById("setsumei").style.display ="none";
+    document.getElementById("start_position").style.display ="none";
+    document.getElementById("hole_position").style.display ="none";
+    document.getElementById("goal_position").style.display ="none";
+    //参考 https://developer.mozilla.org/ja/docs/Web/API/Performance/now
+    t = performance.now();
+    t_max = t + 20000;
+    loop();
+  }
+  
+  var renderer;
+  function initThree() {
+    width = document.getElementById('canvas-frame').clientWidth;
+    height = document.getElementById('canvas-frame').clientHeight;  
+    renderer = new THREE.WebGLRenderer({antialias: true});
+    renderer.setSize(width, height);
+    document.getElementById('canvas-frame').appendChild(renderer.domElement);
+    renderer.setClearColor(0xFFFFFF, 1.0);
+    //renderer.setClearColorHex(0xFFFFFF, 1.0);
+  }
+
+  var camera, controls;
+  function initCamera() {  
+    camera = new THREE.PerspectiveCamera( 45 , width / height , 1 , 10000 );
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    camera.position.x = 0;
+    camera.position.y = -150;
+    camera.position.z = 79;
+    
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.2;
+  }
+  var scene;
+  function initScene() {    
+    scene = new THREE.Scene();
+  }
+  var light;
+  function initLight() {  
+    light = new THREE.DirectionalLight(0xFFFFFF, 1.0, 0);
+    light.position.set( 20, -100, 180 );
+    scene.add(light);
+  }
+  var cube = Array();
+  var base;
+  var sphere;
+　function initObject(){
+    //土台
+  base = new THREE.Mesh(
+    new THREE.BoxGeometry(70,70,1),
+    new THREE.MeshLambertMaterial({color: 0xFAE3BE})
+  );
+  scene.add(base);
+  base.position.set(0, 0, 0);
+  
+  //土台を囲う柵(奥)
+  cube[0] = new THREE.Mesh(
+    new THREE.BoxGeometry(70,1,6),
+    new THREE.MeshLambertMaterial({color: 0xffdab9})
+  );
+  scene.add(cube[0]);
+  cube[0].position.set(0,35,2);
+  
+  //土台を囲う柵(手前)
+  cube[1] = new THREE.Mesh(
+    new THREE.BoxGeometry(70,1,6),
+    new THREE.MeshLambertMaterial({color: 0xffdab9})
+  );
+  scene.add(cube[1]);
+  cube[1].position.set(0,-35,2);
+  
+  //土台を囲う柵(右)
+  cube[2] = new THREE.Mesh(
+    new THREE.BoxGeometry(1,70,6),
+    new THREE.MeshLambertMaterial({color: 0xffdab9})
+  );
+  scene.add(cube[2]);
+  cube[2].position.set(35,0,2);
+  
+  //土台を囲う柵(左)
+  cube[3] = new THREE.Mesh(
+    new THREE.BoxGeometry(1,70,6),
+    new THREE.MeshLambertMaterial({color: 0xffdab9})
+  );
+  scene.add(cube[3]);
+  cube[3].position.set(-35,0,2);
+  
+  //迷路の柵
+  cube[4] = new THREE.Mesh(
+    new THREE.BoxGeometry(1,62,6),
+    new THREE.MeshLambertMaterial({color: 0xffdab9})
+    );
+  scene.add(cube[4]);
+  cube[4].position.set(-26,4,2);
+ 
+  cube[5] = new THREE.Mesh(
+    new THREE.BoxGeometry(22,1,6),
+    new THREE.MeshLambertMaterial({color: 0xffdab9})
+  );
+  scene.add(cube[5]);
+  cube[5].position.set(-15,-27,2);
+  
+  cube[6] = new THREE.Mesh(
+    new THREE.BoxGeometry(20,1,6),
+    new THREE.MeshLambertMaterial({color: 0xffdab9})
+  );
+  scene.add(cube[6]);
+  cube[6].position.set(16,-27,2);
+ 
+  cube[7] = new THREE.Mesh(
+    new THREE.BoxGeometry(1,54,6),
+    new THREE.MeshLambertMaterial({color: 0xffdab9})
+  );
+  scene.add(cube[7]);
+  cube[7].position.set(26,-8,2);
+  
+  cube[8] = new THREE.Mesh(
+    new THREE.BoxGeometry(1,31,6),
+    new THREE.MeshLambertMaterial({color: 0xffdab9})
+  );
+  scene.add(cube[8]);
+  cube[8].position.set(-4.5,-3,2);
+  
+  cube[9] = new THREE.Mesh(
+    new THREE.BoxGeometry(30,1,6),
+    new THREE.MeshLambertMaterial({color: 0xffdab9})
+  );
+  scene.add(cube[9]);
+  cube[9].position.set(11,19,2);
+  
+  cube[10] = new THREE.Mesh(
+    new THREE.BoxGeometry(9,14,6),
+    new THREE.MeshLambertMaterial({color: 0xffdab9})
+  );
+  scene.add(cube[10]);
+  cube[10].position.set(11,-9,2);
+ 
+  cube[11] = new THREE.Mesh(
+    new THREE.BoxGeometry(9,14,6),
+    new THREE.MeshLambertMaterial({color: 0xffdab9})
+  );
+  scene.add(cube[11]);
+  cube[11].position.set(22,12,2);
+  
+  cube[12] = new THREE.Mesh(
+    new THREE.BoxGeometry(9,9,6),
+    new THREE.MeshLambertMaterial({color: 0xffdab9})
+  );
+  scene.add(cube[12]);
+  cube[12].position.set(-9,-14,2);
+  
+  cube[13] = new THREE.Mesh(
+    new THREE.BoxGeometry(7,7,6),
+    new THREE.MeshLambertMaterial({color: 0xffdab9})
+  );
+  scene.add(cube[13]);
+  cube[13].position.set(-15,5,2);
+ 
+ 
+  //ゴールの旗
+  var pole = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.5,0.5,10,10,10),
+    new THREE.MeshLambertMaterial({color: 0xffdab9})
+  );
+  scene.add(pole);
+  pole.position.set(30,-30,6);
+  pole.rotation.set(Math.PI/2,0,0);
+  
+  var tri_prism1 = new THREE.Mesh(
+    new THREE.CylinderGeometry(3,3,1,3),
+    new THREE.MeshLambertMaterial({color: 0xFF0000})
+  );
+  scene.add(tri_prism1);
+  tri_prism1.position.set(32,-30,8);
+  tri_prism1.rotation.set(0,-Math.PI/6,0);
+  
+  
+  //球
+  sphere = new THREE.Mesh(
+    new THREE.SphereGeometry(3,30,30),
+    new THREE.MeshLambertMaterial({color: 0xf0f8ff})
+  );
+  scene.add(sphere);
+  sphere.position.set(-32,32,3);
+  
+  //落とし穴
+  var cylinder = new THREE.Mesh(
+    new THREE.CylinderGeometry(5,5,1,30,30),
+    new THREE.MeshLambertMaterial({color: 0x66ccff})
+  );
+  scene.add(cylinder);
+  cylinder.position.set(-20,28,0.01);
+  cylinder.rotation.set(Math.PI/2,0,0);
+  }
+    
+　function loop() {
+    move();
+    renderer.clear();
+    renderer.render(scene, camera);
+    window.requestAnimationFrame(loop);
+  }
+  
+  //重力加速度
+  var g = 9.8;
+  
+  //質量
+  var m = 1;
+  //摩擦係数
+  var n = 0.01;
+  //速度 前vx,vz 後vx1,vz1
+  var vx = 0.0;
+  var vz = 0.0;
+  var vx1 = 0.0;
+  var vz1 = 0.0;
+  
+  //球の座標の計算に必要な時間tx1, tz1
+  var tx = 0.0;
+  var tz = 0.0;
+  
+  //球の座標
+  var y_sphere = 32.0;
+  var x_sphere = -32.0;
+  
+  var x, z, sinx, sinz;
+  
+  //カメラ軸の球の基準の位置
+  var a = -32;
+  var b = 32;
+  
+  //alertのカウント
+  var count = 0;
+  
+  function move() {
+      //元の位置からどれだけカメラを移動しているか
+      x = camera.position.x - 0;
+      z = camera.position.z - 80;
+      
+      //土台とz方向がなす角のsin
+      sinx = x / 70;
+      //土台とx方向がなす角のsin
+      sinz = z / 70;
+      tx = tx + 0.001;
+      tz = tz + 0.001;
+      
+      //球の位置の計算
+      //aとbは球の基準の位置
+      //sinx * g、sinz * gで土台方向の加速度
+      x_sphere = (vx * tx - sinx * g * tx * tx) + a;
+      y_sphere = (vz * tz - sinz * g * tz * tz) + b;
+      
+      
+      vx1 = vx - sinx * g * tx - n * m * sinx * g * tx;
+      vz1 = vz - sinz * g * tz - n * m * sinz * g * tz;
+      
+      
+      //下から上にボールが移動するとき
+      if (vz1 > 0) {
+          //[0]
+          //[1]
+          
+          //[2]
+          if (y_sphere > 32){
+              y_sphere = 32;
+              vz1 = 0.0;
+              tz = 0.0;
+          }
+          //[3]
+          //[4]
+          
+          //[5]
+          //[6]
+          else if (y_sphere > -30 && y_sphere < -28 && ((x_sphere > -28 && x_sphere < -1) || (x_sphere < 27 && x_sphere > 4))){
+              y_sphere = -30;
+              vz1 = 0.0;
+              tz = 0.0;
+          }
+          //[7]
+          //[8]
+          else if (x_sphere > -3 && x_sphere < -8 && y_sphere < 16 && y_sphere > 12){
+              y_sphere = 16;
+              vz1 = 0.0;
+              tz = 0.0;
+          }
+          //[9]
+          else if (x_sphere < 28 && x_sphere > -5 && y_sphere < 20 && y_sphere > 16) {
+              y_sphere = 16;
+              vz1 = 0.0;
+              tz = 0.0;
+          }
+          //[10]
+          
+          else if (x_sphere < 18 && x_sphere > 4 && y_sphere < -10 && y_sphere > -18) {
+              y_sphere = -18;
+              vz1 = 0.0;
+              tz = 0.0;
+          }
+          //[11]
+          else if (x_sphere < 27 && x_sphere > 16 && y_sphere < 9 && y_sphere > 2) {
+              y_sphere = 2;
+              vz1 = 0.0;
+              tz = 0.0;
+          }
+          //[12]
+          else if (x_sphere > -16 && x_sphere < -3 && y_sphere < -16 && y_sphere > -21){
+              y_sphere = -21;
+              vz1 = 0.0;
+              tz = 0.0;
+          }
+          //[13]
+          else if (x_sphere > -20 && x_sphere < -10 && y_sphere < 5 && y_sphere > 1){
+              y_sphere = 1;
+              vz1 = 0.0;
+              tz = 0.0;
+          }
+      }
+      //上から下にボールが移動するとき
+      else {
+          //[0]
+          //[1]
+          //[2]
+          //[3]
+          if (y_sphere < -32){
+              y_sphere = -32;
+              vz1 = 0.0;
+              tz = 0.0;
+          }
+          //[4]
+          
+          //[5]
+          //[6]
+          else if (y_sphere > -26 && y_sphere < -24 && ((x_sphere > -28 && x_sphere < -1) || (x_sphere < 27 && x_sphere > 4))){
+              y_sphere = -24;
+              vz1 = 0.0;
+              tz = 0.0;
+          }
+          //[7]
+          //[8]
+          else if (x_sphere < -3 && x_sphere > -8 && y_sphere < 15 && y_sphere > 12){
+              y_sphere = 15;
+              vz1 = 0.0;
+              tz = 0.0;
+          }
+          //[9]
+          else if (x_sphere < 28 && x_sphere > -5 && y_sphere < 22 && y_sphere > 18){
+              y_sphere = 22;
+              vz1 = 0.0;
+              tz = 0.0;
+          }
+          //[10]
+          else if (x_sphere < 18 && x_sphere > 4 && y_sphere < 0 && y_sphere > -2) {
+              y_sphere = 0;
+              vz1 = 0.0;
+              tz = 0.0;
+          }
+          //[11]
+          //[12]
+          else if (x_sphere > -16 && x_sphere < -3 && y_sphere < -7 && y_sphere > -12){
+              y_sphere = -7;
+              vz1 = 0.0;
+              tz = 0.0;
+          }
+          //[13]
+          else if (x_sphere > -20 && x_sphere < -10 && y_sphere < 11 && y_sphere > 5){
+              y_sphere = 11;
+              vz1 = 0.0;
+              tz = 0.0;
+          }
+      }
+      //左から右にボールが移動するとき
+      if (vx1 > 0) {
+          //[0]
+          
+          //[1]
+          if (x_sphere > 32){
+              x_sphere = 32;
+              vx1 = 0.0;
+              tx = 0.0;
+          }
+          //[2]
+          //[3]
+          
+          //[4]
+          else if (x_sphere < -28 && x_sphere > -29 && y_sphere > -29) {
+              x_sphere = -29;
+              vx1 = 0.0;
+              tx = 0.0;
+          }
+          //[5]
+          else if (y_sphere > -28 && y_sphere < -24 && x_sphere > 3 && x_sphere < 7){
+              x_sphere = 3;
+              vx1 = 0.0;
+              tx = 0.0;
+          }
+          //[6]
+          
+          //[7]
+          else if (x_sphere < 26 && x_sphere > 23 && y_sphere < 21){
+              x_sphere = 23;
+              vx1 = 0.0;
+          }
+          //[8]
+          else if (x_sphere > -7.5 && x_sphere < -3 && y_sphere < 15 && y_sphere > -15){
+              x_sphere = -7.5;
+              vx1 = 0.0;
+              tx = 0.0;
+          }
+          //[9]
+          else if (y_sphere > 16 && y_sphere < 22 && x_sphere > -1 && x_sphere < 4){
+              x_sphere = -1;
+              vx1 = 0.0;
+              tx = 0.0;
+          }
+          //[10]
+          else if (x_sphere < 7 && x_sphere > 4 && y_sphere < -2 && y_sphere > -18) {
+              x_sphere = 4;
+              vx1 = 0.0;
+              tx = 0.0;
+          }
+          //[11]
+          else if (x_sphere < 25 && x_sphere > 15 && y_sphere < 17 && y_sphere > 2){
+              x_sphere = 15;
+              vx1 = 0.0;
+              tx = 0.0;
+          }
+          //[12]
+          else if (x_sphere > -16 && x_sphere < -6 && y_sphere < -7 && y_sphere > -21){
+              x_sphere = -16;
+              vx1 = 0.0;
+              tx = 0.0;
+          }
+          //[13]
+          else if (x_sphere > -21 && x_sphere < -15 && y_sphere < 11 && y_sphere > 1){
+              x_sphere = -21;
+              vx1 = 0.0;
+              tx = 0.0;
+          }
+      }
+      //右から左にボールが移動するとき
+      else {
+          //[0]
+          if (x_sphere < -32){
+              x_sphere = -32;
+              vx1 = 0.0;
+              tx = 0.0;
+          }
+          //[1]
+          //[2]
+          //[3]
+          
+          //[4]
+          else if (x_sphere > -28 && x_sphere < -23 && y_sphere > -28){
+              x_sphere = -23;
+              vx1 = 0.0;
+              tx = 0.0;
+          }
+          //[5]
+          
+          //[6]
+          else if (y_sphere > -29 && y_sphere < -24 && x_sphere > -10 && x_sphere < -1){
+              x_sphere = -1;
+              vx1 = 0.0;
+              tx = 0.0;
+          }
+          //[7]
+          else if (x_sphere > 26 && x_sphere < 29 && y_sphere < 21) {
+              x_sphere = 29;
+              vx1 = 0.0;
+              tx = 0.0;
+          }
+          //[8]
+          if (x_sphere < -1.5 && x_sphere > -3 && y_sphere < 15 && y_sphere > -15) {
+              x_sphere = -1.5;
+              vx1 = 0.0;
+              tx = 0.0;
+          }
+          //[9]
+          
+          //[10]
+          else if (x_sphere < 18 && x_sphere > 16 && y_sphere < -2 && y_sphere > -18) {
+              x_sphere = 18;
+              vx1 = 0.0;
+              tx = 0.0;
+          }
+          //[11]
+          //[12]
+          else if (x_sphere < -1.5 && x_sphere > -6 && y_sphere < -7 && y_sphere > -21){
+              x_sphere = -1.5;
+              vx1 = 0.0;
+              tx = 0.0;
+          }
+          //[13]
+          else if (x_sphere > -15 && x_sphere < -9 && y_sphere < 11 && y_sphere > 1){
+              x_sphere = -9;
+              vx1 = 0.0;
+              tx = 0.0;
+          }
+      }
+      
+      //制限時間
+      t = performance.now();
+      
+      //時間オーバー
+      if ((t_max - t)/1000 < deadline){
+          if (deadline <= 0){
+              alert("失敗！もう一度挑戦してね。")
+              vx1 = 0.0;
+              vz1 = 0.0;
+              tx = 0;
+              tz = 0;
+              x_sphere = -32;
+              y_sphere = 32;
+              t = 0;
+              t_max = 0;
+              deadline = 14;
+              location.reload();
+          }
+          else {
+              time.innerHTML = "制限時間："+deadline+"秒";
+              deadline = deadline - 1;
+          }
+      }
+      
+      //水色の部分
+      if (x_sphere < -16 && x_sphere > -28 && y_sphere > 25 && y_sphere < 34){
+          alert("失敗！もう一度挑戦してね。")
+          vx1 = 0.0;
+          vz1 = 0.0;
+          tx = 0;
+          tz = 0;
+          x_sphere = -32;
+          y_sphere = 32;
+          t = 0;
+          t_max = 0;
+          deadline = 14;
+          location.reload();
+      }
+      else if (x_sphere > 28 && y_sphere < -31){
+          if (count == 0){
+              alert((deadline+1)+"秒残してゴール！おめでとう〜！");
+              count++;
+              vx1 = 0.0;
+              vz1 = 0.0;
+              tx = 0;
+              tz = 0;
+              x_sphere = -32;
+              y_sphere = 32;
+              t = 0;
+              t_max = 0;
+              deadline = 14;
+              location.reload();
+          }
+      }
+      
+      a = x_sphere;
+      b = y_sphere;
+      //速度が正から負、もしくは負から正に変わるとき、球の基準の位置を更新
+      if ((vx >= 0 && vx1 <= 0) || (vx <= 0 && vx1 >= 0)) {
+          tx = 0.0;
+          
+      }
+      if ((vz >= 0 && vz1 <= 0) || (vz <= 0 && vz1 >= 0)) {
+          tz = 0.0;
+          
+      }
+      
+      vx = vx1;
+      vz = vz1;
+      
+      
+    
+      scene.add(sphere);
+      sphere.position.set(x_sphere,y_sphere,3);
+  }
+
+
+  var t = 0;
+  function threeStart() {
+    initThree();
+    initCamera();
+    initScene();    
+    initLight();
+    initObject();
+    renderer.clear();
+    controls.update();
+    //loop();
+    renderer.render(scene, camera);
+  }
+    
+</script>
+</head>
+ 
+<body onload="threeStart();">
+<div id="canvas-frame"></div>
+</body>
+</html>
